@@ -1,0 +1,77 @@
+# Common Makefile for base functionality tests
+# Builds M68K bare-metal binary and .mem file for simulation
+
+# Tools
+CPP = m68k-elf-cpp
+AS = m68k-elf-as
+LD = m68k-elf-ld
+OBJCOPY = m68k-elf-objcopy
+OBJDUMP = m68k-elf-objdump
+PYTHON = python3
+
+# Directories
+COMMON_DIR = ../../common
+TOOLS_DIR = ../../tools
+BASE_DIR = ..
+BSP_DIR = ../../../nextp8-bsp
+
+# Files
+# Automatically set TARGET to the directory name (e.g., 01_post_code)
+TARGET ?= $(notdir $(CURDIR))
+SRC = $(TARGET).s
+PREPROCESSED = $(TARGET).i
+OBJ = $(TARGET).o
+ELF = $(TARGET).elf
+BIN = $(TARGET).bin
+MEM = $(TARGET).mem
+LST = $(TARGET).lst
+
+# Flags
+CPPFLAGS = -I$(BASE_DIR)/include -I$(COMMON_DIR)/include -I$(BSP_DIR)/include
+ASFLAGS = -m68000
+LDFLAGS = -T $(COMMON_DIR)/nextp8_funcval.ld
+
+# Default target
+all: $(MEM) $(LST)
+
+# Preprocess assembly source to expand #include directives
+$(PREPROCESSED): $(SRC)
+	$(CPP) $(CPPFLAGS) $< -o $@
+
+# Assemble preprocessed source
+$(OBJ): $(PREPROCESSED)
+	$(AS) $(ASFLAGS) -o $@ $<
+
+# Link
+$(ELF): $(OBJ)
+	$(LD) $(LDFLAGS) -o $@ $<
+
+# Convert to binary
+$(BIN): $(ELF)
+	$(OBJCOPY) -O binary $< $@
+
+# Generate listing
+$(LST): $(ELF)
+	$(OBJDUMP) -d -S $< > $@
+
+# Convert to .mem format
+$(MEM): $(BIN)
+	$(PYTHON) $(TOOLS_DIR)/bin2mem.py $< $@
+
+# Simulate in FuncVal testbench
+sim: $(MEM)
+	@../../tools/test_wrapper.sh sim
+
+# Run with model
+model: $(BIN)
+	@../../tools/test_wrapper.sh model
+
+# Alias
+.PHONY: test
+test: model
+
+# Clean
+clean:
+	rm -f $(PREPROCESSED) $(OBJ) $(ELF) $(BIN) $(MEM) $(LST)
+
+.PHONY: all sim model run clean
