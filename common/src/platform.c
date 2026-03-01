@@ -39,14 +39,14 @@ void platform_detect(void)
     platform_is_interactive = false;
     platform_has_testbench = false;
 
-    /* Check ADDR_BUILD_TIMESTAMP_LO (0x800004) */
+    /* Check ADDR_BUILD_TIMESTAMP_LO */
     if (MMIO_REG16(_BUILD_TIMESTAMP_LO) != 0) {
         platform_is_spectrum_next = true;
         platform_is_interactive = true;
         return;
     }
 
-    /* Check ADDR_HW_VERSION_LO (0x800008) */
+    /* Check ADDR_HW_VERSION_LO */
     uint8_t hw_version_lo = MMIO_REG16(_HW_VERSION_LO) & 0xff;
     if (hw_version_lo < 0xfe || hw_version_lo > 0xff) {
         platform_is_simulation = true;

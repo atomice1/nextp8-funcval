@@ -80,7 +80,7 @@ wait_loop_1:
     subx.l  d1, d3          /* d3 = d3 - d1 (high 32 bits with borrow) */
     beq.s   fail_6_2        /* If result is zero, timer didn't advance */
 
-    move.l #0x80000a, a2
+    move.l #_DEBUG_REG_HI, a2
     move.l d4, (a2)         /* 3380 */
 
     /* Timer incremented, success */
@@ -123,7 +123,7 @@ loop_6_3:
     sub.l   d2, d6          /* d6 = d6 - d2 (low 32 bits) */
     subx.l  d1, d5          /* d5 = d5 - d1 (high 32 bits with borrow) */
 
-    move.l #0x80000a, a2
+    move.l #_DEBUG_REG_HI, a2
     move.l d6, (a2)         /* 334 */
 
     /* Check the elapsed time is approximately twice that in test 6.2 */
@@ -132,13 +132,13 @@ loop_6_3:
     sub.l   d4, d6          /* d6 = d6 - d4 (low 32 bits) */
     subx.l  d3, d5          /* d5 = d5 - d3  (high 32 bits with borrow) */
 
-    move.l #0x80000a, a2
+    move.l #_DEBUG_REG_HI, a2
     move.l d6, (a2)         /* -3046 */
 
     sub.l   d4, d6          /* d6 = d6 - d4 (low 32 bits) */
     subx.l  d3, d5          /* d5 = d5 - d3  (high 32 bits with borrow) */
 
-    move.l #0x80000a, a2
+    move.l #_DEBUG_REG_HI, a2
     move.l d6, (a2)         /* -6426 */
 
     /* Take absolute value */
@@ -148,7 +148,7 @@ loop_6_3:
     negxl  d5
 positive_6_3:
 
-    move.l #0x80000a, a2
+    move.l #_DEBUG_REG_HI, a2
     move.l d6, (a2)         /* 6417 */
 
     /* Check difference is < 10 */
@@ -157,7 +157,7 @@ positive_6_3:
     subl d3,  d6
     subxl d2, d5
 
-    move.l #0x80000a, a0
+    move.l #_DEBUG_REG_HI, a0
     move.l d6, (a0)
 
     bgt.s     fail_6_3
@@ -183,7 +183,7 @@ test_6_4:
     SET_POST(#0x07)
 
     /* Read current VFRONT */
-    move.l  #0x80001D, a0
+    move.l  #_VFRONTREQ, a0
     move.b  (a0), d0        /* Current VFRONT (0 or 1) */
 
     /* Request buffer flip (toggle VFRONT) */
@@ -220,7 +220,7 @@ flip_wait_2:
     sub.l   d2, d4          /* d4 = d4 - d2 (low 32 bits) */
     subx.l  d1, d3          /* d3 = d3 - d1 (high 32 bits with borrow) */
 
-    move.l #0x80000a, a2
+    move.l #_DEBUG_REG_HI, a2
     move.l d4, (a2)
 
     /* Check the elapsed time is approximately 16667 */
@@ -229,7 +229,7 @@ flip_wait_2:
     subl d2,  d4
     subxl d1, d3
 
-    move.l #0x80000a, a2
+    move.l #_DEBUG_REG_HI, a2
     move.l d4, (a2)
 
     /* Take absolute value */
@@ -239,7 +239,7 @@ flip_wait_2:
     negxl  d3
 positive_6_4:
 
-    move.l #0x80000a, a2
+    move.l #_DEBUG_REG_HI, a2
     move.l d4, (a2)
 
     /* Check difference is < 2 */
@@ -267,8 +267,8 @@ fail_6_4:
 test_6_5:
     SET_POST(#0x09)
 
-    /* Read initial timer value from 0x800014 (bits 63:48, latch trigger) */
-    move.l  #0x800014, a0
+    /* Read initial timer value from _UTIMER_1MHZ (bits 63:48, latch trigger) */
+    move.l  #_UTIMER_1MHZ, a0
     move.w  (a0), d1        /* d1 = bits [63:48] (also latches all 64 bits) */
 
     /* Delay loop: 65536 iterations */
@@ -279,9 +279,9 @@ delay_loop_6_5:
 
     /* Now read all four timer registers after delay */
     move.w  (a0), d1        /* d1 = bits [63:48] */
-    move.w  2(a0), d2       /* d2 = bits [47:32] (reading 0x800016) */
-    move.w  4(a0), d3       /* d3 = bits [31:16] (reading 0x800018) */
-    move.w  6(a0), d4       /* d4 = bits [15:0]  (reading 0x80001A) */
+    move.w  2(a0), d2       /* d2 = bits [47:32] (reading _UTIMER_1MHZ + 2) */
+    move.w  4(a0), d3       /* d3 = bits [31:16] (reading _UTIMER_1MHZ + 4) */
+    move.w  6(a0), d4       /* d4 = bits [15:0]  (reading _UTIMER_1MHZ + 6) */
 
     /* Construct full 64-bit time: (d1<<48)|(d2<<32)|(d3<<16)|d4 */
     /* Result will be in d0:d1 (high:low) */
@@ -339,14 +339,14 @@ detect_simulation:
     clr.b   is_simulation
     clr.b   is_model
 
-    /* Check ADDR_BUILD_TIMESTAMP_LO (0x800004) */
-    move.l  #0x800004, a0
+    /* Check ADDR_BUILD_TIMESTAMP_LO */
+    move.l  #_BUILD_TIMESTAMP_LO, a0
     move.w  (a0), d0
     bne.w   detected_spectrum_next
 
-    /* Check ADDR_HW_VERSION_LO (0x800008) */
-    move.l  #0x800009, a0
-    move.b  (a0), d0        /* Read patch_version from 0x800009 */
+    /* Check ADDR_HW_VERSION_LO */
+    move.l  #(_HW_VERSION_LO + 1), a0
+    move.b  (a0), d0        /* Read patch_version from (_HW_VERSION_LO + 1) */
 
     /* Check if hw_version_lo is in range [0xfe, 0xff] */
     /* If < 0xfe or > 0xff, it's simulation (any other value) */

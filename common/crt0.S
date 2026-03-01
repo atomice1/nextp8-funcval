@@ -4,6 +4,7 @@
  */
 
 #include "../include/m68k_defs.h"
+#include "nextp8.h"
 
     .text
     .extern __stack
@@ -12,7 +13,7 @@
     .globl _start
 _start:
     /* Update POST code to indicate boot */
-    move.l  #0x80000c, a0
+    move.l  #_POST_CODE, a0
     move.b  #4, (a0)
 
     /* Initialize stack */

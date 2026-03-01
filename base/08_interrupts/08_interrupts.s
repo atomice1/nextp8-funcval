@@ -109,14 +109,14 @@ detect_simulation:
     clr.b   is_simulation
     clr.b   is_model
 
-    /* Check ADDR_BUILD_TIMESTAMP_LO (0x800004) */
-    move.l  #0x800004, a0
+    /* Check ADDR_BUILD_TIMESTAMP_LO */
+    move.l  #_BUILD_TIMESTAMP_LO, a0
     move.w  (a0), d0
     bne.s   detected_spectrum_next
 
-    /* Check ADDR_HW_VERSION_LO (0x800008) */
-    move.l  #0x800009, a0
-    move.b  (a0), d0        /* Read patch_version from 0x800009 */
+    /* Check ADDR_HW_VERSION_LO  */
+    move.l  #(_HW_VERSION_LO + 1), a0
+    move.b  (a0), d0        /* Read patch_version from (_HW_VERSION_LO + 1) */
 
     /* Check if hw_version_lo is in range [0xfe, 0xff] */
     /* If < 0xfe or > 0xff, it's simulation (any other value) */

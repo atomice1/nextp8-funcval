@@ -71,9 +71,9 @@ _start:
     move.l  #0x100000, sp
 
     /* Clear debug registers */
-    movel.  #0x80000a, a0
+    movel.  #_DEBUG_REG_HI, a0
     move.w  #0, (a0)
-    movel.  #0x80000c, a0
+    movel.  #_DEBUG_REG_LO, a0
     move.w  #0, (a0)
 
     /* Initialize UART baud rate */
@@ -144,8 +144,8 @@ detect_simulation:
     clr.b   is_interactive
     clr.b   has_testbench
 
-    /* Check ADDR_BUILD_TIMESTAMP_LO (0x800004) */
-    move.l  #0x800004, a0
+    /* Check ADDR_BUILD_TIMESTAMP_LO  */
+    move.l  #_BUILD_TIMESTAMP_LO, a0
     move.w  (a0), d0
 
     beq.s   check_hw_version
@@ -154,9 +154,9 @@ detect_simulation:
     bra.s   detected_spectrum_next /* Otherwise it's Spectrum Next */
 
 check_hw_version:
-    /* Check ADDR_HW_VERSION_LO (0x800008) */
-    move.l  #0x800009, a0
-    move.b  (a0), d0        /* Read patch_version from 0x800009 */
+    /* Check ADDR_HW_VERSION_LO  */
+    move.l  #(_HW_VERSION_LO + 1), a0
+    move.b  (a0), d0        /* Read patch_version from (_HW_VERSION_LO + 1) */
 
     /* Check if hw_version_lo is in range [0xfe, 0xff] */
     cmp.b   #0xfe, d0
@@ -529,7 +529,7 @@ read_vga_pixel:
     move.w  (a0), d0             /* Read 16-bit word at offset */
 
     /* Copy sampled word to the debug register */
-    movel.  #0x80000c, a0
+    movel.  #_DEBUG_REG_LO, a0
     move.w  d0, (a0)
 
     movem.l (sp)+, d1-d3/a0
@@ -562,14 +562,14 @@ flip_buffers:
 
     SET_POST(#17)
     /* Read current VFRONT register */
-    move.l  #0x80001D, a0       /* ADDR_VFRONT = 0x80001D */
+    move.l  #_VFRONT, a0
     move.b  (a0), d0            /* d0 = current VFRONT value (0 or 1) */
 
     /* Calculate new VFRONT value (toggle bit 0) */
     eor.b   #0x01, d0           /* d0 = current VFRONT XOR 1 */
 
     /* Write new value to VFRONTREQ to request flip */
-    move.b  d0, (a0)            /* ADDR_VFRONTREQ = 0x80001D (same address, write operation) */
+    move.b  d0, (a0)
 
     /* Poll VFRONT until it matches the requested value (with timeout) */
     move.l  #100000000, d2        /* Timeout counter (large 32-bit value) */

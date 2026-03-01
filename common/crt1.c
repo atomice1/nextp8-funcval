@@ -30,7 +30,7 @@ void platform_detect(void);
 
 /* Set POST code */
 static inline void set_postcode(uint8_t code) {
-    *(volatile uint8_t *)0x80000c = code;
+    *(volatile uint8_t *)_POST_CODE = code;
 }
 
 /* This is called from crt0.S */
