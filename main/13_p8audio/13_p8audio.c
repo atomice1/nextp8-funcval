@@ -550,49 +550,51 @@ static int test_sfx_offset_length_edges(void)
         result = TEST_FAIL;
         return result;
     }
-    static int test_sfx_loop_offset_wrap(void)
-    {
-        int result = TEST_PASS;
-        int i;
-        size_t base = 10 * SFX_BYTES;
-
-        for (i = 0; i < 16; i++) {
-            write_note(10, i, (uint8_t)(i * 2), 0, NOTE_DEFAULT_VOL, 0);
-        }
-        sfx_mem[base + 64] = 0x00;
-        sfx_mem[base + 65] = 0x04;
-        sfx_mem[base + 66] = 0x00;
-        sfx_mem[base + 67] = 0x0f;
-
-        MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0008;
-        sfx_cmd(10, 0, 12);
-        if (!wait_for_sfx_on_channel(0, 10, 200000)) {
-            test_puts("FAIL: loop offset sfx did not start on ch0");
-            test_print_crlf();
-            result = TEST_FAIL;
-            return result;
-        }
-
-        for (i = 0; i < 2000; i++) {
-            uint16_t note_val = stat_note(0);
-            if (note_val != 0xffff && (uint8_t)(note_val & 0x3f) < 10) {
-                MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0000;
-                test_puts("PASS");
-                test_print_crlf();
-                return result;
-            }
-            usleep(1000);
-        }
-
-        test_puts("FAIL: loop offset sfx did not wrap around");
-        test_print_crlf();
-        result = TEST_FAIL;
-        MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0000;
-        return result;
-    }
     MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0000;
     test_puts("PASS");
     test_print_crlf();
+    return result;
+}
+
+
+static int test_sfx_loop_offset_wrap(void)
+{
+    int result = TEST_PASS;
+    int i;
+    size_t base = 10 * SFX_BYTES;
+
+    for (i = 0; i < 16; i++) {
+        write_note(10, i, (uint8_t)(i * 2), 0, NOTE_DEFAULT_VOL, 0);
+    }
+    sfx_mem[base + 64] = 0x00;
+    sfx_mem[base + 65] = 0x04;
+    sfx_mem[base + 66] = 0x00;
+    sfx_mem[base + 67] = 0x0f;
+
+    MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0008;
+    sfx_cmd(10, 0, 12);
+    if (!wait_for_sfx_on_channel(0, 10, 200000)) {
+        test_puts("FAIL: loop offset sfx did not start on ch0");
+        test_print_crlf();
+        result = TEST_FAIL;
+        return result;
+    }
+
+    for (i = 0; i < 2000; i++) {
+        uint16_t note_val = stat_note(0);
+        if (note_val != 0xffff && (uint8_t)(note_val & 0x3f) < 10) {
+            MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0000;
+            test_puts("PASS");
+            test_print_crlf();
+            return result;
+        }
+        usleep(1000);
+    }
+
+    test_puts("FAIL: loop offset sfx did not wrap around");
+    test_print_crlf();
+    result = TEST_FAIL;
+    MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0000;
     return result;
 }
 
@@ -1072,17 +1074,17 @@ TEST_SUITE(13_p8audio,
            TEST_CASE_SETUP_CLEANUP(sfx_release_loop, p8audio_record_setup, p8audio_record_cleanup),
            TEST_CASE_SETUP_CLEANUP(sfx_offset_length, p8audio_record_setup, p8audio_record_cleanup),
            TEST_CASE_SETUP_CLEANUP(sfx_offset_length_edges, p8audio_record_setup, p8audio_record_cleanup),
-            TEST_CASE_SETUP_CLEANUP(sfx_loop_offset_wrap, p8audio_record_setup, p8audio_record_cleanup),
+           TEST_CASE_SETUP_CLEANUP(sfx_loop_offset_wrap, p8audio_record_setup, p8audio_record_cleanup),
            TEST_CASE_SETUP_CLEANUP(sfx_stop_all, p8audio_record_setup, p8audio_record_cleanup),
            TEST_CASE_SETUP_CLEANUP(sfx_release_all, p8audio_record_setup, p8audio_record_cleanup),
            TEST_CASE_SETUP_CLEANUP(multi_channel_play, p8audio_record_setup, p8audio_record_cleanup),
            TEST_CASE_SETUP_CLEANUP(all_channels_busy_auto_queue, p8audio_record_setup, p8audio_record_cleanup),
            TEST_CASE_SETUP_CLEANUP(busy_channel_queue, p8audio_record_setup, p8audio_record_cleanup),
            TEST_CASE_SETUP_CLEANUP(pcm_mixing, p8audio_record_setup, p8audio_record_cleanup),
-            TEST_CASE_SETUP_CLEANUP(sfx_over_music, p8audio_record_setup, p8audio_record_cleanup),
+           TEST_CASE_SETUP_CLEANUP(sfx_over_music, p8audio_record_setup, p8audio_record_cleanup),
            TEST_CASE_SETUP_CLEANUP(sfx_stop_release_while_music, p8audio_record_setup, p8audio_record_cleanup),
-            TEST_CASE_SETUP_CLEANUP(music_basic, p8audio_record_setup, p8audio_record_cleanup),
-            TEST_CASE_SETUP_CLEANUP(music_mask, p8audio_record_setup, p8audio_record_cleanup),
-            TEST_CASE_SETUP_CLEANUP(music_loop_fade, p8audio_record_setup, p8audio_record_cleanup),
-            TEST_CASE_SETUP_CLEANUP(music_fade_out_time, p8audio_record_setup, p8audio_record_cleanup),
-            TEST_CASE_SETUP_CLEANUP(music_advance_timing, p8audio_record_setup, p8audio_record_cleanup));
+           TEST_CASE_SETUP_CLEANUP(music_basic, p8audio_record_setup, p8audio_record_cleanup),
+           TEST_CASE_SETUP_CLEANUP(music_mask, p8audio_record_setup, p8audio_record_cleanup),
+           TEST_CASE_SETUP_CLEANUP(music_loop_fade, p8audio_record_setup, p8audio_record_cleanup),
+           TEST_CASE_SETUP_CLEANUP(music_fade_out_time, p8audio_record_setup, p8audio_record_cleanup),
+           TEST_CASE_SETUP_CLEANUP(music_advance_timing, p8audio_record_setup, p8audio_record_cleanup));
