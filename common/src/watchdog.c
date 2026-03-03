@@ -16,6 +16,9 @@ uint32_t watchdog_start_time_lo = 0;
 void (*watchdog_handler)(void) = 0;
 uint8_t watchdog_active = 0;
 
+/* Counts every VBlank interrupt; used by wait_vsync() */
+volatile uint32_t vblank_count = 0;
+
 /* watchdog_start - Start or restart the watchdog timer
  * Records current time, enables VBlank interrupts, sets timeout handler
  *
@@ -122,6 +125,9 @@ __attribute__((interrupt)) void watchdog_vblank_handler(void)
 done:
     /* Acknowledge VBlank interrupt */
     MMIO_REG8(_VBLANK_INTR_CTRL) = 0x01;  /* Write bit 0 to acknowledge */
+
+    /* Count every VBlank regardless of watchdog state */
+    vblank_count++;
 }
 
 /* watchdog_check - Manual check if watchdog has timed out
@@ -150,5 +156,32 @@ int watchdog_check(void)
     if (elapsed_hi != 0 || elapsed_lo >= watchdog_timeout_us)
         return 1;
 
+    return 0;
+}
+
+/* wait_vsync - Wait for the next VBlank interrupt.
+ *
+ * Snapshots vblank_count and busy-waits until it increments, with a 100 ms
+ * timeout in case VBlank interrupts are not enabled.
+ *
+ * Returns 0 if a VBlank was seen, 1 if timed out.
+ *
+ * Writes to _DEBUG_REG_LO for sim visibility:
+ *   0xAA00 = entered wait_vsync
+ *   0xBB00 = exited normally (VBlank received)
+ *   0xFF00 = timed out
+ */
+int wait_vsync(void)
+{
+    MMIO_REG16(_DEBUG_REG_LO) = 0xAA00;
+    uint32_t before = vblank_count;
+    uint64_t deadline = timer_get_us() + 100000ULL;  /* 100 ms timeout */
+    while (vblank_count == before) {
+        if (timer_get_us() >= deadline) {
+            MMIO_REG16(_DEBUG_REG_LO) = 0xFF00;
+            return 1;  /* timed out */
+        }
+    }
+    MMIO_REG16(_DEBUG_REG_LO) = 0xBB00;
     return 0;
 }

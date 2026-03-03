@@ -37,6 +37,9 @@ ASFLAGS = -m68000 --register-prefix-optional
 LDFLAGS = -nostartfiles -T $(COMMON_DIR)/nextp8_funcval.ld
 LIBS = -L$(COMMON_DIR) -lfuncval
 
+TIMEOUT ?= 2000
+export TIMEOUT
+
 # Default target
 all: $(MEM) $(LST)
 
@@ -63,8 +66,9 @@ $(OBJ): $(TARGET).S
 endif
 
 # Link with crt0, crt1, main, and libfuncval (use gcc as linker driver)
-$(ELF): $(CRT0_OBJ) $(CRT1_OBJ) $(MAIN_OBJ) $(OBJ) $(COMMON_DIR)/libfuncval.a
-	$(CC) $(LDFLAGS) -o $@ $(CRT0_OBJ) $(CRT1_OBJ) $(MAIN_OBJ) $(OBJ) $(LIBS)
+# EXTRA_OBJS can be set by including Makefile to add additional object files
+$(ELF): $(CRT0_OBJ) $(CRT1_OBJ) $(MAIN_OBJ) $(OBJ) $(EXTRA_OBJS) $(COMMON_DIR)/libfuncval.a
+	$(CC) $(LDFLAGS) -o $@ $(CRT0_OBJ) $(CRT1_OBJ) $(MAIN_OBJ) $(OBJ) $(EXTRA_OBJS) $(LIBS)
 
 # Convert to binary
 $(BIN): $(ELF)
@@ -79,11 +83,13 @@ $(MEM): $(BIN)
 	$(PYTHON) $(TOOLS_DIR)/bin2mem.py $< $@
 
 # Simulate in FuncVal testbench
-sim: $(MEM)
+# EXTRA_SIM_DEPS can be set by including Makefile to add additional dependencies
+sim: $(MEM) $(EXTRA_SIM_DEPS)
 	@$(TOOLS_DIR)/test_wrapper.sh sim
 
 # Run with model
-model: $(BIN)
+# EXTRA_MODEL_DEPS can be set by including Makefile to add additional dependencies
+model: $(BIN) $(EXTRA_MODEL_DEPS)
 	@$(TOOLS_DIR)/test_wrapper.sh model
 
 # Alias
@@ -91,7 +97,8 @@ model: $(BIN)
 test: model
 
 # Clean
+# EXTRA_CLEAN can be set by including Makefile to remove additional generated files
 clean:
-	rm -f $(CRT0_OBJ) $(CRT1_OBJ) $(MAIN_OBJ) $(OBJ) $(ELF) $(BIN) $(MEM) $(LST)
+	rm -f $(CRT0_OBJ) $(CRT1_OBJ) $(MAIN_OBJ) $(OBJ) $(EXTRA_OBJS) $(ELF) $(BIN) $(MEM) $(LST) $(EXTRA_CLEAN)
 
 .PHONY: all sim model test clean

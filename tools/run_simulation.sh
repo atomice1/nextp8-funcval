@@ -33,7 +33,7 @@ set -o pipefail
 set -x
 (
     cd "$TB_FUNCVAL_PATH"
-    make sim ROM_FILE="$ROM_ABS"
+    make sim ROM_FILE="$ROM_ABS" ${SDCARD_IMAGE:+SDCARD_IMAGE="$SDCARD_IMAGE"} ${XSIM_EXTRA_ARGS:+XSIM_EXTRA_ARGS="$XSIM_EXTRA_ARGS"} ${XSIM_WAVES:+XSIM_WAVES="$XSIM_WAVES"}
 ) 2>&1 | tee "$LOG_FILE"
 
 # Move screenshots to output directory if they were generated in tb_funcval

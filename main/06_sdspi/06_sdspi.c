@@ -10,13 +10,22 @@
 #include "funcval.h"
 #include "mmio.h"
 #include "sdblockdevice.h"
+#include "funcval_tb.h"
+
+#define BLOCK_SIZE 512
 
 /* Global SD block device instance */
 static struct _sd_block_device sd_device;
 
-/* Buffer for block operations (512 bytes) */
-static uint8_t block_buffer[512];
-static uint8_t compare_buffer[512];
+/* Buffer for block operations */
+#define FAT_READ_SECTORS 4
+static uint8_t block_buffer[FAT_READ_SECTORS * BLOCK_SIZE]; /* large enough for multi-sector FAT reads */
+static uint8_t compare_buffer[BLOCK_SIZE];
+
+/* BPB-derived layout (populated after reading boot sector in test 2) */
+static uint32_t bpb_fat1_sector;  /* First sector of FAT 1 */
+static uint32_t bpb_fat2_sector;  /* First sector of FAT 2 */
+static uint32_t bpb_data_sector;  /* First sector of data area */
 
 /* Test 1: Initialize SD card */
 static int test_sd_init(void)
@@ -29,7 +38,7 @@ static int test_sd_init(void)
 
     if (result != SD_BLOCK_DEVICE_OK) {
         test_puts("FAIL (error ");
-        uart_print_hex_word(result);
+        test_print_hex_word(result);
         test_puts(")");
         test_print_crlf();
         return TEST_FAIL;
@@ -39,6 +48,11 @@ static int test_sd_init(void)
     test_print_crlf();
     return TEST_PASS;
 }
+
+#include "funcval_tb.h"
+
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
 
 /* Test 2: Read boot sector (Volume ID) */
 static int test_read_boot_sector(void)
@@ -49,43 +63,60 @@ static int test_read_boot_sector(void)
 
     if (result != SD_BLOCK_DEVICE_OK) {
         test_puts("FAIL (error ");
-        uart_print_hex_word(result);
+        test_print_hex_word(result);
         test_puts(")");
         test_print_crlf();
         return TEST_FAIL;
     }
 
-    /* Check for boot sector signature (0x55AA at offset 510) */
     if (block_buffer[510] != 0x55 || block_buffer[511] != 0xAA) {
         test_puts("FAIL (invalid boot signature: ");
-        uart_print_hex_word(block_buffer[510]);
+        test_print_hex_byte(block_buffer[510]);
         test_puts(" ");
-        uart_print_hex_word(block_buffer[511]);
+        test_print_hex_byte(block_buffer[511]);
         test_puts(")");
         test_print_crlf();
         return TEST_FAIL;
     }
+
+    /* Parse BPB fields to derive FAT and data area locations */
+    uint16_t reserved_sectors = (uint16_t)block_buffer[0x0E] |
+                                 ((uint16_t)block_buffer[0x0F] << 8);
+    uint8_t  num_fats         = block_buffer[0x10];
+    uint16_t root_entry_count = (uint16_t)block_buffer[0x11] |
+                                 ((uint16_t)block_buffer[0x12] << 8);
+    uint16_t fat_size         = (uint16_t)block_buffer[0x16] |
+                                 ((uint16_t)block_buffer[0x17] << 8);
+    uint32_t root_dir_sectors = ((uint32_t)root_entry_count * 32 + BLOCK_SIZE - 1)
+                                 / BLOCK_SIZE;
+
+    bpb_fat1_sector = reserved_sectors;
+    bpb_fat2_sector = reserved_sectors + fat_size;
+    bpb_data_sector = reserved_sectors + (uint32_t)num_fats * fat_size
+                      + root_dir_sectors;
 
     test_puts("PASS");
     test_print_crlf();
     return TEST_PASS;
 }
 
+#pragma GCC pop_options
+
 /* Test 3: Read FAT 1 (multiple blocks) */
 static int test_read_fat1(void)
 {
     test_puts("  Reading FAT 1 (4 sectors)... ");
 
-    /* Typical FAT starts at sector 1 (after boot sector) */
-    /* Read 4 sectors (2048 bytes) into block_buffer and compare_buffer */
+    /* Read 4 sectors of FAT 1 into block_buffer */
     for (int i = 0; i < 4; i++) {
-        int result = _sd_read(&sd_device, block_buffer + (i * 512), 1 + i, 512);
+        int result = _sd_read(&sd_device, block_buffer + (i * BLOCK_SIZE),
+                              (bpb_fat1_sector + i) * BLOCK_SIZE, BLOCK_SIZE);
 
         if (result != SD_BLOCK_DEVICE_OK) {
             test_puts("FAIL (error ");
-            uart_print_hex_word(result);
+            test_print_hex_word(result);
             test_puts(" at sector ");
-            uart_print_hex_word(1 + i);
+            test_print_hex_word(1 + i);
             test_puts(")");
             test_print_crlf();
             return TEST_FAIL;
@@ -117,28 +148,22 @@ static int test_read_fat2_compare(void)
 {
     test_puts("  Reading FAT 2 and comparing... ");
 
-    /* Save FAT 1 data to compare_buffer */
-    memcpy(compare_buffer, block_buffer, 512);
-
-    /* Typical FAT 2 starts right after FAT 1
-     * For FAT16, each FAT is typically 64-256 sectors
-     * We'll assume FAT size is 64 sectors, so FAT 2 starts at sector 65 */
-    int fat_size = 64; /* sectors */
-    int fat2_start = 1 + fat_size;
+    /* Save first sector of FAT 1 to compare_buffer */
+    memcpy(compare_buffer, block_buffer, BLOCK_SIZE);
 
     /* Read first sector of FAT 2 */
-    int result = _sd_read(&sd_device, block_buffer, fat2_start, 512);
+    int result = _sd_read(&sd_device, block_buffer, bpb_fat2_sector * BLOCK_SIZE, BLOCK_SIZE);
 
     if (result != SD_BLOCK_DEVICE_OK) {
         test_puts("FAIL (error ");
-        uart_print_hex_word(result);
+        test_print_hex_word(result);
         test_puts(")");
         test_print_crlf();
         return TEST_FAIL;
     }
 
-    /* Compare FAT 1 and FAT 2 (should be identical) */
-    if (memcmp(compare_buffer, block_buffer, 512) != 0) {
+    /* Compare first sector of FAT 1 and FAT 2 (should be identical) */
+    if (memcmp(compare_buffer, block_buffer, BLOCK_SIZE) != 0) {
         test_puts("FAIL (FAT 1 and FAT 2 differ)");
         test_print_crlf();
         return TEST_FAIL;
@@ -149,13 +174,18 @@ static int test_read_fat2_compare(void)
     return TEST_PASS;
 }
 
-/* Test 5: Single block write - read sector 1 and verify it's zeros */
-static int test_write_prep_check_zeros(void)
-{
-    test_puts("  Checking sector 1 is zeros... ");
+/* Flag: set once we have confirmed the test sector is zero and are about to
+ * write the pattern.  Used by suite cleanup to know whether to restore zeros. */
+static int write_attempted = 0;
 
-    /* Read sector 1 (first sector after boot sector) */
-    int result = _sd_read(&sd_device, block_buffer, 1, 512);
+/* Test 5: Check test sector is zeros, write pattern, read back and verify */
+static int test_write_verify_pattern(void)
+{
+    test_puts("  Checking test sector is zeros... ");
+
+    /* Read a sector well into the data area (10 sectors past data start) */
+    int result = _sd_read(&sd_device, block_buffer,
+                          (bpb_data_sector + 10) * BLOCK_SIZE, BLOCK_SIZE);
 
     if (result != SD_BLOCK_DEVICE_OK) {
         test_puts("FAIL (read error)");
@@ -163,31 +193,26 @@ static int test_write_prep_check_zeros(void)
         return TEST_FAIL;
     }
 
-    /* Check all bytes are zero */
-    for (int i = 0; i < 512; i++) {
+    /* Check all bytes are zero - do not proceed with write if not clean */
+    for (int i = 0; i < BLOCK_SIZE; i++) {
         if (block_buffer[i] != 0) {
-            test_puts("FAIL (sector 1 not zeros - UNSAFE TO PROCEED)");
+            test_puts("FAIL (test sector not zeros - UNSAFE TO PROCEED)");
             test_print_crlf();
             return TEST_FAIL;
         }
     }
 
-    test_puts("PASS");
-    test_print_crlf();
-    return TEST_PASS;
-}
+    /* Sector confirmed clean - write the pattern */
+    write_attempted = 1;
 
-/* Test 6: Write test pattern to sector 1 */
-static int test_write_pattern(void)
-{
-    test_puts("  Writing test pattern to sector 1... ");
+    test_puts("OK, writing test pattern... ");
 
-    /* Create test pattern */
-    for (int i = 0; i < 512; i++) {
+    for (int i = 0; i < BLOCK_SIZE; i++) {
         block_buffer[i] = i & 0xFF;
     }
 
-    int result = _sd_program(&sd_device, block_buffer, 1, 512);
+    result = _sd_program(&sd_device, block_buffer,
+                         (bpb_data_sector + 10) * BLOCK_SIZE, BLOCK_SIZE);
 
     if (result != SD_BLOCK_DEVICE_OK) {
         test_puts("FAIL (write error)");
@@ -195,21 +220,13 @@ static int test_write_pattern(void)
         return TEST_FAIL;
     }
 
-    test_puts("PASS");
-    test_print_crlf();
-    return TEST_PASS;
-}
+    test_puts("OK, verifying... ");
 
-/* Test 7: Read back and verify pattern */
-static int test_verify_pattern(void)
-{
-    test_puts("  Verifying test pattern... ");
+    /* Clear buffer before read-back */
+    memset(compare_buffer, 0, BLOCK_SIZE);
 
-    /* Clear buffer first */
-    memset(compare_buffer, 0, 512);
-
-    /* Read sector 1 */
-    int result = _sd_read(&sd_device, compare_buffer, 1, 512);
+    result = _sd_read(&sd_device, compare_buffer,
+                      (bpb_data_sector + 10) * BLOCK_SIZE, BLOCK_SIZE);
 
     if (result != SD_BLOCK_DEVICE_OK) {
         test_puts("FAIL (read error)");
@@ -217,11 +234,10 @@ static int test_verify_pattern(void)
         return TEST_FAIL;
     }
 
-    /* Verify pattern */
-    for (int i = 0; i < 512; i++) {
+    for (int i = 0; i < BLOCK_SIZE; i++) {
         if (compare_buffer[i] != (i & 0xFF)) {
             test_puts("FAIL (pattern mismatch at byte ");
-            uart_print_hex_word(i);
+            test_print_hex_word(i);
             test_puts(")");
             test_print_crlf();
             return TEST_FAIL;
@@ -233,65 +249,59 @@ static int test_verify_pattern(void)
     return TEST_PASS;
 }
 
-/* Test 8: Write zeros back to sector 1 */
-static int test_restore_zeros(void)
+/* Suite cleanup: restore zeros if we wrote the pattern */
+static void suite_cleanup(void)
 {
-    test_puts("  Restoring zeros to sector 1... ");
+    if (!write_attempted)
+        return;
 
-    /* Fill buffer with zeros */
-    memset(block_buffer, 0, 512);
+    test_puts("  Cleanup: restoring zeros to test sector... ");
 
-    int result = _sd_program(&sd_device, block_buffer, 1, 512);
+    memset(block_buffer, 0, BLOCK_SIZE);
+
+    int result = _sd_program(&sd_device, block_buffer,
+                             (bpb_data_sector + 10) * BLOCK_SIZE, BLOCK_SIZE);
 
     if (result != SD_BLOCK_DEVICE_OK) {
         test_puts("FAIL (write error)");
         test_print_crlf();
-        return TEST_FAIL;
+        return;
     }
 
-    test_puts("PASS");
-    test_print_crlf();
-    return TEST_PASS;
-}
-
-/* Test 9: Verify zeros restored */
-static int test_verify_zeros(void)
-{
-    test_puts("  Verifying zeros restored... ");
-
-    /* Read sector 1 */
-    int result = _sd_read(&sd_device, block_buffer, 1, 512);
+    result = _sd_read(&sd_device, block_buffer,
+                      (bpb_data_sector + 10) * BLOCK_SIZE, BLOCK_SIZE);
 
     if (result != SD_BLOCK_DEVICE_OK) {
         test_puts("FAIL (read error)");
         test_print_crlf();
-        return TEST_FAIL;
+        return;
     }
 
-    /* Check all bytes are zero */
-    for (int i = 0; i < 512; i++) {
+    for (int i = 0; i < BLOCK_SIZE; i++) {
         if (block_buffer[i] != 0) {
             test_puts("FAIL (byte ");
-            uart_print_hex_word(i);
+            test_print_hex_word(i);
             test_puts(" not zero)");
             test_print_crlf();
-            return TEST_FAIL;
+            return;
         }
     }
 
     test_puts("PASS");
     test_print_crlf();
-    return TEST_PASS;
 }
 
-/* Test suite array */
-TEST_SUITE(06_sdspi,
-           sd_init,
-           read_boot_sector,
-           read_fat1,
-           read_fat2_compare,
-           write_prep_check_zeros,
-           write_pattern,
-           verify_pattern,
-           restore_zeros,
-           verify_zeros);
+void software_init_hook(void)
+{
+    platform_detect();
+    if (platform_is_simulation)
+        MMIO_REG16(FUNCVAL_MODEL_DEBUG_SDSPI) = 1;
+}
+
+/* Test suite */
+TEST_SUITE_SETUP_CLEANUP(06_sdspi, NULL, suite_cleanup,
+                         sd_init,
+                         read_boot_sector,
+                         read_fat1,
+                         read_fat2_compare,
+                         write_verify_pattern);

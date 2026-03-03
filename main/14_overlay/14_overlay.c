@@ -62,6 +62,13 @@ static void flip_buffers(void)
             break;
         }
     }
+
+    /* flip_buffers() returns the moment vsync N fires (VFRONT toggles).
+     * The VGA model hasn't captured the new frame yet at that instant.
+     * First wait_vsync() consumes vsync N; second waits for vsync N+1
+     * at which point the model has captured a complete new frame. */
+    wait_vsync();
+    wait_vsync();
 }
 
 static uint16_t read_vga_pixel(uint16_t x, uint16_t y)
@@ -162,7 +169,7 @@ static int test_overlay_horizontal_bars(void)
     overlay_set_control(0, true);
     flip_buffers();
 
-    if (platform_is_simulation || platform_is_model) {
+    if (platform_has_testbench) {
         int errors = 0;
         errors += verify_pixel(64, 16, expected_rgb_for_index(COLOR_RED_IDX));
         errors += verify_pixel(64, 48, expected_rgb_for_index(COLOR_GREEN_IDX));
@@ -173,9 +180,12 @@ static int test_overlay_horizontal_bars(void)
             test_print_crlf();
             return TEST_FAIL;
         }
-    } else {
+    }
+    if (platform_is_interactive) {
         test_puts("  Check display shows 4 horizontal color bars");
         test_print_crlf();
+        screen_flip();
+        wait_for_any_key();
     }
 
     test_puts("  PASS");
@@ -191,7 +201,6 @@ static int test_overlay_key_transparency(void)
 
     clear_buffer((uint8_t *)_BACK_BUFFER_BASE);
     clear_buffer((uint8_t *)_OVERLAY_BACK_BUFFER_BASE);
-    clear_buffer((uint8_t *)_OVERLAY_FRONT_BUFFER_BASE);
 
     draw_vertical_bars((uint8_t *)_BACK_BUFFER_BASE);
     draw_horizontal_bars((uint8_t *)_OVERLAY_BACK_BUFFER_BASE);
@@ -199,7 +208,7 @@ static int test_overlay_key_transparency(void)
     overlay_set_control(COLOR_GREEN_IDX, true);
     flip_buffers();
 
-    if (platform_is_simulation || platform_is_model) {
+    if (platform_has_testbench) {
         int errors = 0;
 
         errors += verify_pixel(16, 16, expected_rgb_for_index(COLOR_RED_IDX));
@@ -222,9 +231,12 @@ static int test_overlay_key_transparency(void)
             test_print_crlf();
             return TEST_FAIL;
         }
-    } else {
+    }
+    if (platform_is_interactive) {
         test_puts("  Check key-color bar is transparent over vertical bars");
         test_print_crlf();
+        screen_flip();
+        wait_for_any_key();
     }
 
     test_puts("  PASS");
@@ -245,15 +257,15 @@ static int test_overlay_palette_independence(void)
     draw_horizontal_bars((uint8_t *)_OVERLAY_BACK_BUFFER_BASE);
     overlay_set_control(0, true);
 
-    volatile uint16_t *palette_back = (volatile uint16_t *)PALETTE_BACK_BASE;
-    palette_back[COLOR_RED_IDX] = 0x07e0;
-    palette_back[COLOR_GREEN_IDX] = 0xf800;
-    palette_back[COLOR_BLUE_IDX] = 0xffff;
-    palette_back[COLOR_WHITE_IDX] = 0x0000;
+    volatile uint8_t *palette_back = (volatile uint8_t *)PALETTE_BACK_BASE;
+    palette_back[COLOR_RED_IDX] = 0;
+    palette_back[COLOR_GREEN_IDX] = 1;
+    palette_back[COLOR_BLUE_IDX] = 2;
+    palette_back[COLOR_WHITE_IDX] = 3;
 
     flip_buffers();
 
-    if (platform_is_simulation || platform_is_model) {
+    if (platform_has_testbench) {
         int errors = 0;
         errors += verify_pixel(64, 16, expected_rgb_for_index(COLOR_RED_IDX));
         errors += verify_pixel(64, 48, expected_rgb_for_index(COLOR_GREEN_IDX));
@@ -264,14 +276,24 @@ static int test_overlay_palette_independence(void)
             test_print_crlf();
             return TEST_FAIL;
         }
-    } else {
+    }
+    if (platform_is_interactive) {
         test_puts("  Check overlay bars unchanged after palette change");
         test_print_crlf();
+        screen_flip();
+        wait_for_any_key();
     }
 
     test_puts("  PASS");
     test_print_crlf();
     return TEST_PASS;
+}
+
+void software_init_hook(void)
+{
+    platform_detect();
+    if (platform_is_simulation)
+        MMIO_REG16(FUNCVAL_MODEL_DEBUG_VGA) = 1;
 }
 
 /* Test suite array */

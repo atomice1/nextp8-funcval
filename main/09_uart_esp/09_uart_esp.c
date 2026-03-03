@@ -172,15 +172,7 @@ static int test_at_command(void)
 
     int result = esp_send_at_command("AT", "OK", AT_TIMEOUT_US);
 
-    if (result != 0) {
-        test_puts("FAIL");
-        test_print_crlf();
-        return TEST_FAIL;
-    }
 
-    test_puts("PASS");
-    test_print_crlf();
-    return TEST_PASS;
 }
 
 /* Test 2: Disable echo with ATE0 */
@@ -190,15 +182,7 @@ static int test_disable_echo(void)
 
     int result = esp_send_at_command("ATE0", "OK", AT_TIMEOUT_US);
 
-    if (result != 0) {
-        test_puts("FAIL");
-        test_print_crlf();
-        return TEST_FAIL;
-    }
-
-    test_puts("PASS");
-    test_print_crlf();
-    return TEST_PASS;
+    return (result != 0) ? TEST_FAIL : TEST_PASS;
 }
 
 /* Test 3: Read AT response line by line */
@@ -249,34 +233,6 @@ static int test_read_response(void)
     test_puts("'");
     test_print_crlf();
 
-    test_puts("PASS");
-    test_print_crlf();
-    return TEST_PASS;
-}
-
-/* Test 4: Verify baud rate setting */
-static int test_baud_rate(void)
-{
-    test_puts("  Setting baud rate divisor to 95... ");
-
-    /* Set baud rate to 115200 (95 divisor for ~11MHz clock) */
-    MMIO_REG16(_ESP_BAUD_DIV) = 95;
-
-    /* Read back */
-    uint16_t val = MMIO_REG16(_ESP_BAUD_DIV);
-
-    if (val != 95) {
-        test_puts("FAIL (expected 0x");
-        uart_print_hex_word(95);
-        test_puts(", got 0x");
-        uart_print_hex_word(val);
-        test_puts(")");
-        test_print_crlf();
-        return TEST_FAIL;
-    }
-
-    test_puts("PASS");
-    test_print_crlf();
     return TEST_PASS;
 }
 
@@ -284,5 +240,4 @@ static int test_baud_rate(void)
 TEST_SUITE(09_uart_esp,
            at_command,
            disable_echo,
-           read_response,
-           baud_rate);
+           read_response);

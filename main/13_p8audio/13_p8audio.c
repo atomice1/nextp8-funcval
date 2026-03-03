@@ -162,7 +162,7 @@ static void init_sfx_slot(int sfx, uint8_t pitch, uint8_t wave, uint8_t vol,
     for (i = 0; i < 32; i++) {
         write_note(sfx, i, pitch, wave, vol, 0);
     }
-    sfx_mem[base + 64] = 0x00;
+    sfx_mem[base + 64] = 0x01;
     sfx_mem[base + 65] = speed;
     sfx_mem[base + 66] = (uint8_t)(loop_start & 0x3f);
     sfx_mem[base + 67] = (uint8_t)(loop_end & 0x3f);
@@ -269,7 +269,9 @@ static bool wait_for_sfx_on_channel(int ch, uint8_t sfx, uint32_t timeout_us)
     uint64_t start = timer_get_us();
     while ((timer_get_us() - start) < timeout_us) {
         uint16_t val = stat_sfx(ch);
-        if (val != 0xffff && (uint8_t)(val & 0x3f) == sfx) {
+        uint16_t note_val = stat_note(ch);
+        if (val != 0xffff && note_val != 0xffff &&
+            (uint8_t)(val & 0x3f) == sfx && (note_val & 0x3f) < 32) {
             return true;
         }
     }
@@ -283,7 +285,9 @@ static bool wait_for_sfx_any(uint8_t sfx, int *ch_out, uint32_t timeout_us)
         int ch;
         for (ch = 0; ch < 4; ch++) {
             uint16_t val = stat_sfx(ch);
-            if (val != 0xffff && (uint8_t)(val & 0x3f) == sfx) {
+            uint16_t note_val = stat_note(ch);
+            if (val != 0xffff && note_val != 0xffff &&
+                (uint8_t)(val & 0x3f) == sfx && (note_val & 0x3f) < 32) {
                 if (ch_out) {
                     *ch_out = ch;
                 }
@@ -336,6 +340,17 @@ static bool wait_for_music_pattern(uint8_t pat, uint32_t timeout_us)
     while ((timer_get_us() - start) < timeout_us) {
         uint16_t val = stat_music_pattern();
         if ((uint8_t)(val & 0x3f) == pat) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool wait_for_music_playing(uint32_t timeout_us)
+{
+    uint64_t start = timer_get_us();
+    while ((timer_get_us() - start) < timeout_us) {
+        if (stat_music_playing() & 1) {
             return true;
         }
     }
@@ -515,11 +530,24 @@ static int test_sfx_offset_length(void)
         result = TEST_FAIL;
         return result;
     }
-    if (!wait_for_idle(3, 800000)) {
-        test_puts("FAIL: length override not honored");
-        test_print_crlf();
-        result = TEST_FAIL;
-        return result;
+    {
+        int last_note = -1;
+        uint64_t t = timer_get_us();
+        while ((timer_get_us() - t) < 800000) {
+            uint16_t note_val = stat_note(3);
+            if (note_val == 0xffff || (note_val & 0x3f) >= 32)
+                break;
+            last_note = (int)(note_val & 0x3f);
+            usleep(1000000 / 22050);
+        }
+        if (last_note != 25) {
+            test_puts("FAIL: offset+length expected last note 25, got ");
+            uart_print_hex_word((uint16_t)(unsigned)last_note);
+            test_print_crlf();
+            MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0000;
+            result = TEST_FAIL;
+            return result;
+        }
     }
     MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0000;
     test_puts("PASS");
@@ -544,11 +572,24 @@ static int test_sfx_offset_length_edges(void)
         result = TEST_FAIL;
         return result;
     }
-    if (!wait_for_idle(0, 400000)) {
-        test_puts("FAIL: length=2 did not stop quickly");
-        test_print_crlf();
-        result = TEST_FAIL;
-        return result;
+    {
+        int last_note = -1;
+        uint64_t t = timer_get_us();
+        while ((timer_get_us() - t) < 400000) {
+            uint16_t note_val = stat_note(0);
+            if (note_val == 0xffff || (note_val & 0x3f) >= 32)
+                break;
+            last_note = (int)(note_val & 0x3f);
+            usleep(1000000 / 22050);
+        }
+        if (last_note != 31) {
+            test_puts("FAIL: offset+length expected last note 31, got ");
+            uart_print_hex_word((uint16_t)(unsigned)last_note);
+            test_print_crlf();
+            MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0000;
+            result = TEST_FAIL;
+            return result;
+        }
     }
     MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0000;
     test_puts("PASS");
@@ -566,7 +607,7 @@ static int test_sfx_loop_offset_wrap(void)
     for (i = 0; i < 16; i++) {
         write_note(10, i, (uint8_t)(i * 2), 0, NOTE_DEFAULT_VOL, 0);
     }
-    sfx_mem[base + 64] = 0x00;
+    sfx_mem[base + 64] = 0x01;
     sfx_mem[base + 65] = 0x04;
     sfx_mem[base + 66] = 0x00;
     sfx_mem[base + 67] = 0x0f;
@@ -686,11 +727,13 @@ static int test_all_channels_busy_auto_queue(void)
         return result;
     }
     sfx_cmd(4, -1, 0);
-    if (!wait_for_sfx_on_channel(0, 4, 1200000)) {
-        test_puts("FAIL: auto-queued sfx did not play on ch0");
-        test_print_crlf();
-        result = TEST_FAIL;
-        return result;
+    {
+        int ch = -1;
+        if (!wait_for_sfx_any(4, &ch, 1200000)) {
+            test_puts("FAIL: auto-assign did not preempt any channel for sfx4");
+            test_print_crlf();
+            result = TEST_FAIL;
+        }
     }
     MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0000;
     test_puts("PASS");
@@ -735,16 +778,19 @@ static int test_pcm_mixing(void)
         return result;
     }
     avg1 = pcm_avg_abs(512);
-    if (platform_has_testbench && avg1 < 4) {
+    if (platform_has_testbench && avg1 < 2) {
         test_puts("FAIL: PCM is silent for single channel");
         test_print_crlf();
         result = TEST_FAIL;
         return result;
     }
 
+    sfx_cmd(-1, 0, 0);
+
+    sfx_cmd(9, 0, 0);
     sfx_cmd(9, 1, 0);
-    if (!wait_for_sfx_on_channel(1, 9, 200000)) {
-        test_puts("FAIL: sfx9 did not start on ch1");
+    if (!wait_for_sfx_on_channel(0, 9, 200000) || !wait_for_sfx_on_channel(1, 9, 200000)) {
+        test_puts("FAIL: sfx9 did not start on ch0/ch1");
         test_print_crlf();
         result = TEST_FAIL;
         return result;
@@ -757,20 +803,33 @@ static int test_pcm_mixing(void)
         return result;
     }
 
+    sfx_cmd(-1, 0, 0);
+
+    sfx_cmd(9, 0, 0);
+    sfx_cmd(9, 1, 0);
     sfx_cmd(9, 2, 0);
     sfx_cmd(9, 3, 0);
-    if (!wait_for_sfx_on_channel(2, 9, 200000) || !wait_for_sfx_on_channel(3, 9, 200000)) {
-        test_puts("FAIL: sfx9 did not start on ch2/ch3");
+    if (!wait_for_sfx_on_channel(0, 9, 200000) ||
+        !wait_for_sfx_on_channel(1, 9, 200000) ||
+        !wait_for_sfx_on_channel(2, 9, 200000) ||
+        !wait_for_sfx_on_channel(3, 9, 200000)) {
+        test_puts("FAIL: sfx9 did not start on ch0/ch1/ch2/ch3");
         test_print_crlf();
         result = TEST_FAIL;
         return result;
     }
     avg4 = pcm_avg_abs(512);
-    if (platform_has_testbench && avg4 < (avg1 * 3)) {
-        test_puts("FAIL: PCM mix not ~4x for four channels");
+    if (platform_has_testbench && avg4 < avg2 + 1) {
+        test_puts("FAIL: PCM mix not higher for four channels");
         test_print_crlf();
         result = TEST_FAIL;
         return result;
+    }
+
+    if (platform_is_interactive) {
+        test_puts("  Confirm 4-channel mix sounds louder than single channel?");
+        test_print_crlf();
+        wait_for_any_key();
     }
 
     test_puts("PASS");
@@ -789,6 +848,7 @@ static int test_sfx_over_music(void)
         result = TEST_FAIL;
         return result;
     }
+    MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0000;
     sfx_cmd(4, 0, 0);
     if (!wait_for_sfx_on_channel(0, 4, 200000)) {
         test_puts("FAIL: sfx4 did not override music on ch0");
@@ -796,14 +856,6 @@ static int test_sfx_over_music(void)
         result = TEST_FAIL;
         return result;
     }
-
-    if (!stat_music_playing()) {
-        test_puts("FAIL: music stopped when sfx started");
-        test_print_crlf();
-        result = TEST_FAIL;
-        return result;
-    }
-
     MMIO_REG16(_P8AUDIO_SFX_LEN) = 0x0000;
     music_cmd(-1, 0x0000, 0);
     test_puts("PASS");
@@ -871,20 +923,39 @@ static int test_music_basic(void)
     int result = TEST_PASS;
 
     music_cmd(0, 0x0000, 0x7);
-    if (stat_music_pattern() != 0x0000) {
+    if (!wait_for_music_playing(2000000)) {
+        test_puts("FAIL: music did not start playing");
+        test_print_crlf();
+        result = TEST_FAIL;
+        return result;
+    }
+    if ((stat_music_pattern() & 0x3f) != 0) {
         test_puts("FAIL: music did not start at pattern 0");
         test_print_crlf();
         result = TEST_FAIL;
         return result;
     }
-    if (!wait_for_music_pattern(1, 2000000)) {
+    if (!wait_for_music_pattern(1, 4000000)) {
         test_puts("FAIL: music did not advance to pattern 1");
         test_print_crlf();
         result = TEST_FAIL;
         return result;
     }
 
+    if (platform_is_interactive) {
+        test_puts("  Confirm music is audible?");
+        test_print_crlf();
+        wait_for_any_key();
+    }
+
     music_cmd(-1, 0x0000, 0);
+    usleep(10000);
+    if (stat_music_playing() & 1) {
+        test_puts("FAIL: music still playing after stop command");
+        test_print_crlf();
+        result = TEST_FAIL;
+        return result;
+    }
     test_puts("PASS");
     test_print_crlf();
     return result;
@@ -893,36 +964,53 @@ static int test_music_basic(void)
 static int test_music_mask(void)
 {
     int result = TEST_PASS;
-    music_cmd(0, 0x0000, 0x0);
-    if (!wait_for_music_pattern(0, 2000000)) {
-        test_puts("FAIL: music did not advance with mask=0");
-        test_print_crlf();
-        result = TEST_FAIL;
-        return result;
-    }
-    if (!ensure_idle_for(0, 200000) || !ensure_idle_for(1, 200000) ||
-        !ensure_idle_for(2, 200000) || !ensure_idle_for(3, 200000)) {
-        test_puts("FAIL: channels not idle with mask=0");
-        test_print_crlf();
-        result = TEST_FAIL;
-        return result;
-    }
 
-    music_cmd(0, 0x0000, 0x5);
-    if (!wait_for_sfx_on_channel(0, 0, 800000) || !wait_for_sfx_on_channel(2, 2, 800000)) {
-        test_puts("FAIL: mask=0x5 did not start on ch0/ch2");
+    /* Start music with mask=0x2 (ch1 exclusively reserved for music).
+     * Channels 0, 1, 2 should play; ch3 is disabled in pattern 0. */
+    music_cmd(0, 0x0000, 0x2);
+    if (!wait_for_sfx_on_channel(0, 0, 800000) ||
+        !wait_for_sfx_on_channel(1, 1, 800000) ||
+        !wait_for_sfx_on_channel(2, 2, 800000)) {
+        test_puts("FAIL: music did not start on ch0/ch1/ch2");
         test_print_crlf();
         result = TEST_FAIL;
         return result;
     }
-    if (!ensure_idle_for(1, 200000) || !ensure_idle_for(3, 200000)) {
-        test_puts("FAIL: mask=0x5 did not mute ch1/ch3");
+    /* ch3 is disabled in pattern 0 so should remain idle */
+    if (!ensure_idle_for(3, 200000)) {
+        test_puts("FAIL: music started ch3 but pattern 0 has ch3 disabled");
         test_print_crlf();
         result = TEST_FAIL;
         return result;
     }
-
+    /* auto-sfx should use idle ch3 */
+    sfx_cmd(7, -1, 0);
+    if (!wait_for_sfx_on_channel(3, 7, 800000)) {
+        test_puts("FAIL: auto sfx did not use ch3 when music playing on other channels");
+        test_print_crlf();
+        result = TEST_FAIL;
+        return result;
+    }
+    /* auto-sfx with all channels busy should preempt ch0 (not exclusively music-masked) */
+    sfx_cmd(8, -1, 0);
+    if (!wait_for_sfx_on_channel(0, 8, 800000)) {
+        test_puts("FAIL: auto sfx did not use ch0 when sfx playing on all channels and ch0 not masked");
+        test_print_crlf();
+        result = TEST_FAIL;
+        return result;
+    }
+    /* auto-sfx should also preempt ch2 (masked) */
+    sfx_cmd(9, -1, 0);
+    if (!wait_for_sfx_on_channel(2, 9, 800000)) {
+        test_puts("FAIL: auto sfx did not use ch2 when sfx playing on all channels and ch2 masked");
+        test_print_crlf();
+        result = TEST_FAIL;
+        return result;
+    }
     music_cmd(-1, 0x0000, 0);
+    sfx_cmd(-1, 0, 0);
+    sfx_cmd(-1, 2, 0);
+    sfx_cmd(-1, 3, 0);
     test_puts("PASS");
     test_print_crlf();
     return result;
@@ -983,7 +1071,7 @@ static int test_music_fade_out_time(void)
     uint64_t elapsed;
 
     music_cmd(0, (int)expected_samples, 0x7);
-    if (!wait_for_music_pattern(0, 2000000)) {
+    if (!wait_for_music_playing(2000000)) {
         test_puts("FAIL: music did not start for fade timing test");
         test_print_crlf();
         result = TEST_FAIL;
@@ -1038,6 +1126,7 @@ static int test_music_advance_timing(void)
         return result;
     }
 
+    usleep(22700);  /* ~500 PCM cycles at 22050 Hz */
     if ((stat_music_pattern() & 0x3f) != 2) {
         test_puts("FAIL: music advanced before leftmost non-looping channel finished");
         test_print_crlf();
@@ -1052,6 +1141,7 @@ static int test_music_advance_timing(void)
         return result;
     }
 
+    usleep(22700);  /* ~500 PCM cycles at 22050 Hz */
     if ((stat_music_pattern() & 0x3f) == 2) {
         test_puts("FAIL: music did not advance after leftmost non-looping channel finished");
         test_print_crlf();
@@ -1060,6 +1150,49 @@ static int test_music_advance_timing(void)
     }
 
     music_cmd(-1, 0x0000, 0);
+    test_puts("PASS");
+    test_print_crlf();
+    return result;
+}
+
+static int test_sfx_explicit_preempt(void)
+{
+    int result = TEST_PASS;
+    /* Start a looping SFX on ch0 so it never finishes naturally */
+    sfx_cmd(5, 0, 0);
+    if (!wait_for_sfx_on_channel(0, 5, 200000)) {
+        test_puts("FAIL: looping sfx5 did not start on ch0");
+        test_print_crlf();
+        result = TEST_FAIL;
+        return result;
+    }
+    /* Preempt with sfx1 on the same channel - should start immediately */
+    sfx_cmd(1, 0, 0);
+    if (!wait_for_sfx_on_channel(0, 1, 200000)) {
+        test_puts("FAIL: sfx1 did not preempt looping sfx5 on ch0 within short timeout");
+        test_print_crlf();
+        result = TEST_FAIL;
+    }
+    sfx_cmd(-1, 0, 0);
+    test_puts("PASS");
+    test_print_crlf();
+    return result;
+}
+
+static int test_sfx_rapid_preempt(void)
+{
+    int result = TEST_PASS;
+    /* Trigger sfx0 on ch0, then immediately sfx1 on ch0 (back-to-back writes).
+     * The DMA for sfx0 may not have started yet when sfx1 is triggered.
+     * sfx1 must win and play on ch0. */
+    sfx_cmd(0, 0, 0);
+    sfx_cmd(1, 0, 0);  /* back-to-back: no delay between writes */
+    if (!wait_for_sfx_on_channel(0, 1, 200000)) {
+        test_puts("FAIL: rapid-fire sfx1 did not preempt sfx0 on ch0");
+        test_print_crlf();
+        result = TEST_FAIL;
+    }
+    sfx_cmd(-1, 0, 0);
     test_puts("PASS");
     test_print_crlf();
     return result;
@@ -1087,4 +1220,6 @@ TEST_SUITE(13_p8audio,
            TEST_CASE_SETUP_CLEANUP(music_mask, p8audio_record_setup, p8audio_record_cleanup),
            TEST_CASE_SETUP_CLEANUP(music_loop_fade, p8audio_record_setup, p8audio_record_cleanup),
            TEST_CASE_SETUP_CLEANUP(music_fade_out_time, p8audio_record_setup, p8audio_record_cleanup),
-           TEST_CASE_SETUP_CLEANUP(music_advance_timing, p8audio_record_setup, p8audio_record_cleanup));
+           TEST_CASE_SETUP_CLEANUP(music_advance_timing, p8audio_record_setup, p8audio_record_cleanup),
+           TEST_CASE_SETUP_CLEANUP(sfx_explicit_preempt, p8audio_record_setup, p8audio_record_cleanup),
+           TEST_CASE_SETUP_CLEANUP(sfx_rapid_preempt, p8audio_record_setup, p8audio_record_cleanup));

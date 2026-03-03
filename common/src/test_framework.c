@@ -94,7 +94,7 @@ void test_print_dec(uint32_t value)
     }
 }
 
-/* test_print_hex_long - Print 32-bit hex to UART (no screen output for hex) */
+/* test_print_hex_long - Print 32-bit hex */
 void test_print_hex_long(uint32_t value)
 {
     uart_print_hex_long(value);
@@ -105,7 +105,7 @@ void test_print_hex_long(uint32_t value)
     }
 }
 
-/* test_print_hex_word - Print 16-bit hex to UART (no screen output for hex) */
+/* test_print_hex_word - Print 16-bit hex */
 void test_print_hex_word(uint16_t value)
 {
     uart_print_hex_word(value);
@@ -113,6 +113,17 @@ void test_print_hex_word(uint16_t value)
     /* Check if we should also print to screen */
     if (platform_is_model || platform_is_spectrum_next) {
         screen_print_hex_word(value);
+    }
+}
+
+/* test_print_hex_byte - Print 8-bit hex */
+void test_print_hex_byte(uint8_t value)
+{
+    uart_print_hex_byte(value);
+
+    /* Check if we should also print to screen */
+    if (platform_is_model || platform_is_spectrum_next) {
+        screen_print_hex_byte(value);
     }
 }
 

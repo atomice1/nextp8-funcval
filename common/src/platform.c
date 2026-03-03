@@ -25,10 +25,19 @@ bool platform_has_testbench = false;
  * - platform_is_interactive: true if running on an interactive platform
  * - platform_has_testbench: true if running on a platform with the funcval testbench
  *
- * Detection logic (per FUNCTIONAL_VALIDATION_PLAN.txt):
- * 1. If ADDR_BUILD_TIMESTAMP_LO is non-zero: Spectrum Next platform
- * 2. Else if ADDR_HW_VERSION_LO is non-zero: simulation (FuncVal testbench)
- * 3. Else: sQLux-nextp8 software model
+ * Detection logic:
+ * BUILD_TIMESTAMP comes from USR_ACCESSE2 (Xilinx primitive):
+ *   - xsim simulation model always returns 0x12345678
+ *   - real hardware returns the actual FPGA build Unix timestamp (non-zero, != sentinel)
+ *   - sQLux model returns 0 (no USR_ACCESSE2 implementation)
+ * HW_VERSION_LO low byte:
+ *   - sQLux model: 0xFE (interactive) or 0xFF (non-interactive)
+ *   - hardware/simulation: 0x00 (PATCH_VERSION)
+ *
+ * 1. BUILD_TIMESTAMP == 0x12345678  -> xsim FuncVal testbench simulation
+ * 2. BUILD_TIMESTAMP != 0           -> Spectrum Next real hardware
+ * 3. HW_VERSION_LO byte == 0xFE    -> sQLux model, interactive
+ * 4. else                           -> sQLux model, non-interactive
  */
 void platform_detect(void)
 {
@@ -39,25 +48,28 @@ void platform_detect(void)
     platform_is_interactive = false;
     platform_has_testbench = false;
 
-    /* Check ADDR_BUILD_TIMESTAMP_LO */
-    if (MMIO_REG16(_BUILD_TIMESTAMP_LO) != 0) {
-        platform_is_spectrum_next = true;
-        platform_is_interactive = true;
-        return;
-    }
+    /* Read BUILD_TIMESTAMP (from USR_ACCESSE2 in RTL) */
+    uint32_t build_timestamp = MMIO_REG32(_BUILD_TIMESTAMP);
 
-    /* Check ADDR_HW_VERSION_LO */
-    uint8_t hw_version_lo = MMIO_REG16(_HW_VERSION_LO) & 0xff;
-    if (hw_version_lo < 0xfe || hw_version_lo > 0xff) {
+    if (build_timestamp == 0x12345678) {
+        /* xsim always returns this sentinel for USR_ACCESSE2 */
         platform_is_simulation = true;
         platform_is_interactive = false;
         platform_has_testbench = true;
         return;
     }
 
-    /* Must be sQLux-nextp8 model */
+    if (build_timestamp != 0) {
+        /* Real FPGA hardware: USR_ACCESSE2 contains actual build timestamp */
+        platform_is_spectrum_next = true;
+        platform_is_interactive = true;
+        return;
+    }
+
+    /* BUILD_TIMESTAMP == 0: sQLux model */
+    uint8_t hw_version_lo = MMIO_REG16(_HW_VERSION_LO) & 0xff;
     platform_is_model = true;
-    platform_is_interactive = (hw_version_lo & 0xff) == 0xfe;
+    platform_is_interactive = (hw_version_lo == 0xfe);
     platform_has_testbench = true;
 }
 

@@ -12,7 +12,7 @@
 #define UART_CTRL_WRITE_STROBE  0x01
 #define UART_STATUS_READY       0x02
 #define UART_STATUS_WRITE_ACK   0x08
-#define UART_BAUD_115200        0x004D
+#define UART_BAUD_115200        0x005F  /* 95 = 115200 baud at ~10.955 MHz clk_sys */
 
 /* Inline register access */
 #define MMIO_REG8(addr)  (*(volatile uint8_t *)(addr))

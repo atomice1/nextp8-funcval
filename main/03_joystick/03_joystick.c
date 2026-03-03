@@ -21,13 +21,14 @@ static void set_joystick_input(int joy_num, uint8_t bits, const char *descriptio
         test_puts(": ");
         test_puts(description);
         test_puts(" ('X' to skip)\n");
+        screen_flip();
     } else {
         /* Simulation/model: write directly to testbench register */
         volatile uint8_t *joy_reg = (joy_num == 0) ?
             (volatile uint8_t *)FUNCVAL_JOY0 :
             (volatile uint8_t *)FUNCVAL_JOY1;
         *joy_reg = bits;
-        usleep(1); /* 1us delay as specified */
+        usleep(20000); /* Wait >1 joy_clock period (~12ms at 84Hz) for DUT to sample */
     }
 }
 
@@ -37,12 +38,14 @@ static void clear_joystick_input(int joy_num)
     if (platform_is_interactive) {
         /* Hardware: wait for user to release - just continue after prompt */
         test_puts("Centre/release('X' to skip)\n");
+        screen_flip();
     } else {
         /* Simulation/model: write 0 to testbench register */
         volatile uint8_t *joy_reg = (joy_num == 0) ?
             (volatile uint8_t *)FUNCVAL_JOY0 :
             (volatile uint8_t *)FUNCVAL_JOY1;
         *joy_reg = 0;
+        usleep(20000); /* Wait >1 joy_clock period (~12ms at 84Hz) for DUT to sample */
     }
 }
 

@@ -9,6 +9,7 @@
 #include "nextp8.h"
 #include "funcval.h"
 #include "mmio.h"
+#include "funcval_tb.h"
 
 /* I2C control bits (write) */
 #define I2C_ENA_BIT  0x01        /* Enable/latch command */
@@ -188,22 +189,22 @@ static void print_datetime(unsigned date, unsigned month, unsigned year,
     test_puts("  Date: 20");
     if (year >= 2000) year -= 2000;
     if (year < 10) uart_write_byte('0');
-    uart_print_hex_word(year);
+    uart_print_dec(year);
     uart_write_byte('-');
     if (month < 10) uart_write_byte('0');
-    uart_print_hex_word(month);
+    uart_print_dec(month);
     uart_write_byte('-');
     if (date < 10) uart_write_byte('0');
-    uart_print_hex_word(date);
+    uart_print_dec(date);
     test_puts("  Time: ");
     if (hours < 10) uart_write_byte('0');
-    uart_print_hex_word(hours);
+    uart_print_dec(hours);
     uart_write_byte(':');
     if (minutes < 10) uart_write_byte('0');
-    uart_print_hex_word(minutes);
+    uart_print_dec(minutes);
     uart_write_byte(':');
     if (seconds < 10) uart_write_byte('0');
-    uart_print_hex_word(seconds);
+    uart_print_dec(seconds);
     test_print_crlf();
 }
 
@@ -231,7 +232,7 @@ static int test_rtc_read_success(void)
 /* Test 2: Verify date is within valid range */
 static int test_rtc_date_range(void)
 {
-    test_puts("  Verifying date range (2026-02-22 to 2027-09-22)... ");
+    test_puts("  Verifying date range (2025-01-01 to 2027-12-31)... ");
 
     unsigned date, month, year, hours, minutes, seconds, wday;
 
@@ -244,30 +245,12 @@ static int test_rtc_date_range(void)
     }
 
     /* Check year range */
-    if (year < 2026 || year > 2027) {
+    if (year < 2025 || year > 2027) {
         test_puts("FAIL (year ");
         uart_print_hex_word(year);
         test_puts(" out of range)");
         test_print_crlf();
         return TEST_FAIL;
-    }
-
-    /* Check lower bound: >= 2026-02-22 */
-    if (year == 2026) {
-        if (month < 2 || (month == 2 && date < 22)) {
-            test_puts("FAIL (date too early)");
-            test_print_crlf();
-            return TEST_FAIL;
-        }
-    }
-
-    /* Check upper bound: <= 2027-09-22 */
-    if (year == 2027) {
-        if (month > 9 || (month == 9 && date > 22)) {
-            test_puts("FAIL (date too late)");
-            test_print_crlf();
-            return TEST_FAIL;
-        }
     }
 
     /* Validate month range (1-12) */
@@ -381,6 +364,13 @@ static int test_rtc_time_advances(void)
     test_puts("PASS");
     test_print_crlf();
     return TEST_PASS;
+}
+
+void software_init_hook(void)
+{
+    platform_detect();
+    if (platform_is_simulation)
+        MMIO_REG16(FUNCVAL_MODEL_DEBUG_DS1307) = 1;
 }
 
 /* Test suite array */

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Check FuncVal log output for Test 01 (Version Info)
+# Check FuncVal log output for Test 05 (Keyboard)
 
 set -e
 

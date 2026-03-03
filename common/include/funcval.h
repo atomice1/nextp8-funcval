@@ -80,6 +80,8 @@ struct test_suite {
 #define TRANSFORM_N_20(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) TEST_CASE_EXPAND(A1) TEST_CASE_EXPAND(A2) TEST_CASE_EXPAND(A3) TEST_CASE_EXPAND(A4) TEST_CASE_EXPAND(A5) TEST_CASE_EXPAND(A6) TEST_CASE_EXPAND(A7) TEST_CASE_EXPAND(A8) TEST_CASE_EXPAND(A9) TEST_CASE_EXPAND(A10) TEST_CASE_EXPAND(A11) TEST_CASE_EXPAND(A12) TEST_CASE_EXPAND(A13) TEST_CASE_EXPAND(A14) TEST_CASE_EXPAND(A15) TEST_CASE_EXPAND(A16) TEST_CASE_EXPAND(A17) TEST_CASE_EXPAND(A18) TEST_CASE_EXPAND(A19) TEST_CASE_EXPAND(A20)
 #define TRANSFORM_N_21(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) TEST_CASE_EXPAND(A1) TEST_CASE_EXPAND(A2) TEST_CASE_EXPAND(A3) TEST_CASE_EXPAND(A4) TEST_CASE_EXPAND(A5) TEST_CASE_EXPAND(A6) TEST_CASE_EXPAND(A7) TEST_CASE_EXPAND(A8) TEST_CASE_EXPAND(A9) TEST_CASE_EXPAND(A10) TEST_CASE_EXPAND(A11) TEST_CASE_EXPAND(A12) TEST_CASE_EXPAND(A13) TEST_CASE_EXPAND(A14) TEST_CASE_EXPAND(A15) TEST_CASE_EXPAND(A16) TEST_CASE_EXPAND(A17) TEST_CASE_EXPAND(A18) TEST_CASE_EXPAND(A19) TEST_CASE_EXPAND(A20) TEST_CASE_EXPAND(A21)
 #define TRANSFORM_N_22(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) TEST_CASE_EXPAND(A1) TEST_CASE_EXPAND(A2) TEST_CASE_EXPAND(A3) TEST_CASE_EXPAND(A4) TEST_CASE_EXPAND(A5) TEST_CASE_EXPAND(A6) TEST_CASE_EXPAND(A7) TEST_CASE_EXPAND(A8) TEST_CASE_EXPAND(A9) TEST_CASE_EXPAND(A10) TEST_CASE_EXPAND(A11) TEST_CASE_EXPAND(A12) TEST_CASE_EXPAND(A13) TEST_CASE_EXPAND(A14) TEST_CASE_EXPAND(A15) TEST_CASE_EXPAND(A16) TEST_CASE_EXPAND(A17) TEST_CASE_EXPAND(A18) TEST_CASE_EXPAND(A19) TEST_CASE_EXPAND(A20) TEST_CASE_EXPAND(A21) TEST_CASE_EXPAND(A22)
+#define TRANSFORM_N_23(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23) TEST_CASE_EXPAND(A1) TEST_CASE_EXPAND(A2) TEST_CASE_EXPAND(A3) TEST_CASE_EXPAND(A4) TEST_CASE_EXPAND(A5) TEST_CASE_EXPAND(A6) TEST_CASE_EXPAND(A7) TEST_CASE_EXPAND(A8) TEST_CASE_EXPAND(A9) TEST_CASE_EXPAND(A10) TEST_CASE_EXPAND(A11) TEST_CASE_EXPAND(A12) TEST_CASE_EXPAND(A13) TEST_CASE_EXPAND(A14) TEST_CASE_EXPAND(A15) TEST_CASE_EXPAND(A16) TEST_CASE_EXPAND(A17) TEST_CASE_EXPAND(A18) TEST_CASE_EXPAND(A19) TEST_CASE_EXPAND(A20) TEST_CASE_EXPAND(A21) TEST_CASE_EXPAND(A22) TEST_CASE_EXPAND(A23)
+#define TRANSFORM_N_24(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24) TEST_CASE_EXPAND(A1) TEST_CASE_EXPAND(A2) TEST_CASE_EXPAND(A3) TEST_CASE_EXPAND(A4) TEST_CASE_EXPAND(A5) TEST_CASE_EXPAND(A6) TEST_CASE_EXPAND(A7) TEST_CASE_EXPAND(A8) TEST_CASE_EXPAND(A9) TEST_CASE_EXPAND(A10) TEST_CASE_EXPAND(A11) TEST_CASE_EXPAND(A12) TEST_CASE_EXPAND(A13) TEST_CASE_EXPAND(A14) TEST_CASE_EXPAND(A15) TEST_CASE_EXPAND(A16) TEST_CASE_EXPAND(A17) TEST_CASE_EXPAND(A18) TEST_CASE_EXPAND(A19) TEST_CASE_EXPAND(A20) TEST_CASE_EXPAND(A21) TEST_CASE_EXPAND(A22) TEST_CASE_EXPAND(A23) TEST_CASE_EXPAND(A24)
 
 /* TEST_CASE/TEST_CASE_SETUP_CLEANUP macros expand to a tuple that
  * TEST_SUITE can convert into a test_case initializer.
@@ -161,6 +163,7 @@ extern bool platform_is_spectrum_next;
 extern bool platform_is_simulation;
 extern bool platform_is_model;
 extern bool platform_is_interactive;
+extern bool platform_has_testbench;
 
 void platform_detect(void);
 const char *platform_get_name(void);
@@ -172,6 +175,7 @@ void uart_puts(const char *str);
 void uart_print_crlf(void);
 void uart_print_hex_long(uint32_t value);
 void uart_print_hex_word(uint16_t value);
+void uart_print_hex_byte(uint8_t value);
 void uart_print_dec(uint32_t value);
 
 /* Timer functions */
@@ -192,6 +196,7 @@ void screen_putchar(char c);
 void screen_puts(const char *str);
 void screen_print_hex_long(uint32_t value);
 void screen_print_hex_word(uint16_t value);
+void screen_print_hex_byte(uint8_t value);
 void screen_print_dec(uint32_t value);
 
 /* Keyboard input functions */
@@ -205,6 +210,7 @@ extern uint32_t watchdog_start_time_hi;
 extern uint32_t watchdog_start_time_lo;
 extern void (*watchdog_handler)(void);
 extern uint8_t watchdog_active;
+extern volatile uint32_t vblank_count;
 
 void watchdog_start(uint32_t timeout_us, void (*handler)(void));
 void watchdog_restart(void);
@@ -212,6 +218,11 @@ void watchdog_set_timeout(uint32_t timeout_us);
 void watchdog_stop(void);
 void watchdog_vblank_handler(void);
 int watchdog_check(void);
+
+/* wait_vsync - Wait for the next VBlank interrupt.
+ * Requires VBlank interrupts to be enabled (e.g. via watchdog_start).
+ * Returns 0 if a VBlank was seen, 1 if timed out after ~100 ms. */
+int wait_vsync(void);
 
 /* Test framework functions */
 extern uint32_t test_total_count;
@@ -229,6 +240,7 @@ void test_print_crlf(void);
 void test_print_dec(uint32_t value);
 void test_print_hex_long(uint32_t value);
 void test_print_hex_word(uint16_t value);
+void test_print_hex_byte(uint8_t value);
 void test_print_summary(void);
 int test_run_suite(struct test_suite *specific_suite);
 int test_assert_eq_long(uint32_t actual, uint32_t expected);
