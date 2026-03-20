@@ -13,7 +13,7 @@ PYTHON = python3
 COMMON_DIR = ../../common
 TOOLS_DIR = ../../tools
 BASE_DIR = ..
-BSP_DIR = ../../../nextp8-bsp
+BSP_DIR ?= ../../../nextp8-bsp
 
 # Files
 # Automatically set TARGET to the directory name (e.g., 01_post_code)
