@@ -172,7 +172,7 @@ static int test_at_command(void)
 
     int result = esp_send_at_command("AT", "OK", AT_TIMEOUT_US);
 
-
+    return (result != 0) ? TEST_FAIL : TEST_PASS;
 }
 
 /* Test 2: Disable echo with ATE0 */
