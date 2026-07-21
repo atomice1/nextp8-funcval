@@ -65,7 +65,7 @@ static void display_menu(void)
  */
 static uint16_t get_menu_selection(void)
 {
-    uint8_t input_buffer[3] = {0, 0, 0};
+    char input_buffer[3] = {0, 0, 0};
     uint8_t input_len = 0;
     uint16_t max_suite = count_suites();
     uint16_t selection = 0;
