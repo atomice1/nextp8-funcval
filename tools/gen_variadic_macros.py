@@ -166,7 +166,7 @@ def main(max_trailing=103):
     eval_macro = generate_eval_macro()
     glue = generate_glue_macro()
     transform = generate_transform_macro()
-    transform_macros = generate_transform_macros(100 if max_trailing >= 100 else max_trailing)
+    transform_macros = generate_transform_macros(150 if max_trailing >= 150 else max_trailing)
     test_case = generate_test_case_macros()
     helper = generate_helper_macros()
     test_case_wrap = generate_test_case_wrap_macros()
