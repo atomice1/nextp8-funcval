@@ -74,59 +74,59 @@ static char keytable[256] = {
     0,      // 0x01 ERR_OVF
     0,      // 0x02 MOD_LSHIFT
     0,      // 0x03
-    0,      // 0x04 A
-    0,      // 0x05 B
-    0,      // 0x06 C
-    0,      // 0x07 D
-    0,      // 0x08 E
-    0,      // 0x09 F
-    0,      // 0x0a G
-    0,      // 0x0b H
-    0,      // 0x0c I
-    0,      // 0x0d J
-    0,      // 0x0e K
-    0,      // 0x0f L
-    0,      // 0x10 M
-    0,      // 0x11 N
-    0,      // 0x12 O
-    0,      // 0x13 P
-    0,      // 0x14 Q
-    0,      // 0x15 R
-    0,      // 0x16 S
-    0,      // 0x17 T
-    0,      // 0x18 U
-    0,      // 0x19 V
-    0,      // 0x1a W
-    0,      // 0x1b X
-    0,      // 0x1c Y
-    0,      // 0x1d Z
-    0,      // 0x1e 1
-    0,      // 0x1f 2
-    0,      // 0x20 3
-    0,      // 0x21 4
-    0,      // 0x22 5
-    0,      // 0x23 6
-    0,      // 0x24 7
-    0,      // 0x25 8
-    0,      // 0x26 9
-    0,      // 0x27 0
+    'a',    // 0x04 A
+    'b',    // 0x05 B
+    'c',    // 0x06 C
+    'd',    // 0x07 D
+    'e',    // 0x08 E
+    'f',    // 0x09 F
+    'g',    // 0x0a G
+    'h',    // 0x0b H
+    'i',    // 0x0c I
+    'j',    // 0x0d J
+    'k',    // 0x0e K
+    'l',    // 0x0f L
+    'm',    // 0x10 M
+    'n',    // 0x11 N
+    'o',    // 0x12 O
+    'p',    // 0x13 P
+    'q',    // 0x14 Q
+    'r',    // 0x15 R
+    's',    // 0x16 S
+    't',    // 0x17 T
+    'u',    // 0x18 U
+    'v',    // 0x19 V
+    'w',    // 0x1a W
+    'x',    // 0x1b X
+    'y',    // 0x1c Y
+    'z',    // 0x1d Z
+    '1',    // 0x1e 1
+    '2',    // 0x1f 2
+    '3',    // 0x20 3
+    '4',    // 0x21 4
+    '5',    // 0x22 5
+    '6',    // 0x23 6
+    '7',    // 0x24 7
+    '8',    // 0x25 8
+    '9',    // 0x26 9
+    '0',    // 0x27 0
     '\n',   // 0x28 ENTER
-    '\b',   // 0x29 BACKSPACE
-    '\t',   // 0x2a TAB
-    ' ',    // 0x2b SPACE
-    '-',    // 0x2c MINUS
-    '=',    // 0x2d EQUAL
-    '[',    // 0x2e LEFTBRACE
-    ']',    // 0x2f RIGHTBRACE
-    '\\',   // 0x30 BACKSLASH
-    0,      // 0x31 HASHTILDE (non-US #)
-    ';',    // 0x32 SEMICOLON
-    '\'',   // 0x33 APOSTROPHE
-    '`',    // 0x34 GRAVE
-    ',',    // 0x35 COMMA
-    '.',    // 0x36 DOT
-    '/',    // 0x37 SLASH
-    0,      // 0x38
+    27,     // 0x29 ESCAPE
+    '\b',   // 0x2a BACKSPACE
+    '\t',   // 0x2b TAB
+    ' ',    // 0x2c SPACE
+    '-',    // 0x2d MINUS
+    '=',    // 0x2e EQUAL
+    '[',    // 0x2f LEFTBRACE
+    ']',    // 0x30 RIGHTBRACE
+    '\\',   // 0x31 BACKSLASH
+    '#',    // 0x32 HASHTILDE (non-US #)
+    ';',    // 0x33 SEMICOLON
+    '\'',   // 0x34 APOSTROPHE
+    '`',    // 0x35 GRAVE
+    ',',    // 0x36 COMMA
+    '.',    // 0x37 DOT
+    '/',    // 0x38 SLASH
     0,      // 0x39 CAPSLOCK
     0,      // 0x3a F1
     0,      // 0x3b F2
