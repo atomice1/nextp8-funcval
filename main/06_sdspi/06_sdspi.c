@@ -371,15 +371,15 @@ static void suite_cleanup(void)
     test_print_crlf();
 }
 
-void software_init_hook(void)
+/* Test suite setup */
+static void suite_setup(void)
 {
-    platform_detect();
     if (platform_is_simulation)
         MMIO_REG16(FUNCVAL_MODEL_DEBUG_SDSPI) = 1;
 }
 
 /* Test suite */
-TEST_SUITE_SETUP_CLEANUP(06_sdspi, NULL, suite_cleanup,
+TEST_SUITE_SETUP_CLEANUP(06_sdspi, suite_setup, suite_cleanup,
                          sd_init,
                          read_boot_sector,
                          read_fat1,

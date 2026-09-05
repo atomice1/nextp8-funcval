@@ -372,19 +372,25 @@ static int test_multi_button_latching(void)
     return TEST_PASS;
 }
 
-/* Wait for PS/2 controller init before sending packets.
- */
-void software_init_hook(void)
+
+/* Test suite setup */
+static void suite_setup(void)
 {
-    platform_detect();
     if (platform_is_simulation) {
         MMIO_REG16(FUNCVAL_MODEL_DEBUG_MOUSE) = 1;
         usleep(200000); /* 200ms init time */
     }
 }
 
-/* Define test suite */
-TEST_SUITE(04_mouse,
+/* Test suite cleanup */
+static void suite_cleanup(void)
+{
+    if (platform_is_simulation)
+        MMIO_REG16(FUNCVAL_MODEL_DEBUG_MOUSE) = 0;
+}
+
+/* Test suite */
+TEST_SUITE_SETUP_CLEANUP(04_mouse, suite_setup, suite_cleanup,
     move_right,
     move_left,
     move_down,

@@ -870,15 +870,22 @@ static int test_builtin_multi_key_latching(void)
     return TEST_PASS;
 }
 
-void software_init_hook(void)
+/* Test suite setup */
+static void suite_setup(void)
 {
-    platform_detect();
     if (platform_is_simulation)
         MMIO_REG16(FUNCVAL_MODEL_DEBUG_KB) = 1;
 }
 
+/* Test suite cleanup */
+static void suite_cleanup(void)
+{
+    if (platform_is_simulation)
+        MMIO_REG16(FUNCVAL_MODEL_DEBUG_KB) = 0;
+}
+
 /* Define test suite - all Spectrum Next keyboard keys */
-TEST_SUITE(05a_keyboard_builtin,
+TEST_SUITE_SETUP_CLEANUP(05a_keyboard_builtin, suite_setup, suite_cleanup,
     builtin_key_cap_sh,
     builtin_key_z,
     builtin_key_x,

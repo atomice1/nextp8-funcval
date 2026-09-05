@@ -289,15 +289,22 @@ static int test_overlay_palette_independence(void)
     return TEST_PASS;
 }
 
-void software_init_hook(void)
+/* Test suite setup */
+static void suite_setup(void)
 {
-    platform_detect();
     if (platform_is_simulation)
         MMIO_REG16(FUNCVAL_MODEL_DEBUG_VGA) = 1;
 }
 
-/* Test suite array */
-TEST_SUITE(14_overlay,
+/* Test suite cleanup */
+static void suite_cleanup(void)
+{
+    if (platform_is_simulation)
+        MMIO_REG16(FUNCVAL_MODEL_DEBUG_VGA) = 0;
+}
+
+/* Test suite */
+TEST_SUITE_SETUP_CLEANUP(14_overlay, suite_setup, suite_cleanup,
            overlay_buffer_isolation,
            overlay_horizontal_bars,
            overlay_key_transparency,

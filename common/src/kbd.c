@@ -329,3 +329,8 @@ static char keytable[256] = {
 };
 
 /* Wait for and read a keyboard character */
+char read_keyboard_char(void)
+{
+    uint8_t scancode = read_keyboard_scancode();
+    return keytable[scancode];
+}

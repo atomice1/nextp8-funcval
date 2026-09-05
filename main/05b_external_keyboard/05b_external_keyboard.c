@@ -1209,15 +1209,22 @@ static int test_multi_key_latching(void)
     return TEST_PASS;
 }
 
-void software_init_hook(void)
+/* Test suite setup */
+static void suite_setup(void)
 {
-    platform_detect();
     if (platform_is_simulation)
         MMIO_REG16(FUNCVAL_MODEL_DEBUG_KB) = 1;
 }
 
+/* Test suite cleanup */
+static void suite_cleanup(void)
+{
+    if (platform_is_simulation)
+        MMIO_REG16(FUNCVAL_MODEL_DEBUG_KB) = 0;
+}
+
 /* Define test suite - all keys from US layout keyboard */
-TEST_SUITE(05b_external_keyboard,
+TEST_SUITE_SETUP_CLEANUP(05b_external_keyboard, suite_setup, suite_cleanup,
     key_lctrl,
     key_lshift,
     key_lalt,

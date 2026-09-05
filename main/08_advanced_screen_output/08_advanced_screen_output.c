@@ -203,15 +203,22 @@ static int test_high_colour_mode_10(void)
     return TEST_PASS;
 }
 
-void software_init_hook(void)
+/* Test suite setup */
+static void suite_setup(void)
 {
-    platform_detect();
     if (platform_is_simulation)
         MMIO_REG16(FUNCVAL_MODEL_DEBUG_VGA) = 1;
 }
 
-/* Test suite array */
-TEST_SUITE(08_advanced_screen_output,
+/* Test suite cleanup */
+static void suite_cleanup(void)
+{
+    if (platform_is_simulation)
+        MMIO_REG16(FUNCVAL_MODEL_DEBUG_VGA) = 0;
+}
+
+/* Test suite */
+TEST_SUITE_SETUP_CLEANUP(08_advanced_screen_output, suite_setup, suite_cleanup,
            transform_0,
            transform_129,
            transform_130,

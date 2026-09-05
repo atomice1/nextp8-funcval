@@ -366,15 +366,22 @@ static int test_rtc_time_advances(void)
     return TEST_PASS;
 }
 
-void software_init_hook(void)
+/* Test suite setup */
+static void suite_setup(void)
 {
-    platform_detect();
     if (platform_is_simulation)
         MMIO_REG16(FUNCVAL_MODEL_DEBUG_DS1307) = 1;
 }
 
-/* Test suite array */
-TEST_SUITE(07_i2c,
+/* Test suite cleanup */
+static void suite_cleanup(void)
+{
+    if (platform_is_simulation)
+        MMIO_REG16(FUNCVAL_MODEL_DEBUG_DS1307) = 0;
+}
+
+/* Test suite */
+TEST_SUITE_SETUP_CLEANUP(07_i2c, suite_setup, suite_cleanup,
            rtc_read_success,
            rtc_date_range,
            rtc_time_range,

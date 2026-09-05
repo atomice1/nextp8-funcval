@@ -287,15 +287,22 @@ static int test_palette_screen_output(void)
     return TEST_PASS;
 }
 
-void software_init_hook(void)
+/* Test suite setup */
+static void suite_setup(void)
 {
-    platform_detect();
     if (platform_is_simulation)
         MMIO_REG16(FUNCVAL_MODEL_DEBUG_VGA) = 1;
 }
 
-/* Test suite array */
-TEST_SUITE(12_palette,
+/* Test suite cleanup */
+static void suite_cleanup(void)
+{
+    if (platform_is_simulation)
+        MMIO_REG16(FUNCVAL_MODEL_DEBUG_VGA) = 0;
+}
+
+/* Test suite */
+TEST_SUITE_SETUP_CLEANUP(12_palette, suite_setup, suite_cleanup,
            back_palette_readback,
            palette_flip,
            palette_screen_output);
