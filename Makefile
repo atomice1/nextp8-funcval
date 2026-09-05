@@ -15,6 +15,7 @@ MAIN_TEST_DIRS = 01_version_info \
                  05b_external_keyboard \
                  06_sdspi \
                  07_i2c \
+                 08_advanced_screen_output \
                  09_uart_esp \
                  10_digital_audio \
                  12_palette \
