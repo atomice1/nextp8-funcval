@@ -14,6 +14,9 @@
 
 #define BLOCK_SIZE 512
 
+#define SD_TRX_FREQUENCY_MIN 1000000
+#define SD_TRX_FREQUENCY_MAX 11000000
+
 /* Global SD block device instance */
 static struct _sd_block_device sd_device;
 
@@ -32,7 +35,7 @@ static int test_sd_init(void)
 {
     test_puts("  Initializing SD card... ");
 
-    _sd_construct(&sd_device, 0, SD_TRX_FREQUENCY, SD_CRC_ENABLED);
+    _sd_construct(&sd_device, 0, SD_TRX_FREQUENCY_MIN, SD_CRC_ENABLED);
 
     int result = _sd_init(&sd_device);
 
@@ -249,6 +252,83 @@ static int test_write_verify_pattern(void)
     return TEST_PASS;
 }
 
+/* Test 6: Check SPI can operate up to 11,000,000 baud rate */
+static int test_baud_rate(void)
+{
+    for (int div=11000000 / SD_TRX_FREQUENCY_MIN; div >= 11000000 / SD_TRX_FREQUENCY_MAX; --div) {
+        int baud_rate = 11000000 / div;
+        test_puts("Baud rate: ");
+        test_print_dec(baud_rate);
+        test_puts(" (divider ");
+        test_print_dec(div);
+        test_puts(")");
+        test_print_crlf();
+        test_print_crlf();
+        test_puts("  Reading FAT 1 (4 sectors)... ");
+
+        /* Read 4 sectors of FAT 1 into block_buffer */
+        for (int i = 0; i < 4; i++) {
+            int result = _sd_read(&sd_device, block_buffer + (i * BLOCK_SIZE),
+                                (bpb_fat1_sector + i) * BLOCK_SIZE, BLOCK_SIZE);
+
+            if (result != SD_BLOCK_DEVICE_OK) {
+                test_puts("FAIL (error ");
+                test_print_hex_word(result);
+                test_puts(" at sector ");
+                test_print_hex_word(1 + i);
+                test_puts(")");
+                test_print_crlf();
+                return TEST_FAIL;
+            }
+        }
+
+        /* Check for non-zero data (FAT should have some content) */
+        int has_data = 0;
+        for (int i = 0; i < 2048; i++) {
+            if (block_buffer[i] != 0) {
+                has_data = 1;
+                break;
+            }
+        }
+
+        if (!has_data) {
+            test_puts("FAIL (FAT appears empty)");
+            test_print_crlf();
+            return TEST_FAIL;
+        }
+
+        test_puts("  Reading FAT 2 and comparing... ");
+
+        /* Save first sector of FAT 1 to compare_buffer */
+        memcpy(compare_buffer, block_buffer, BLOCK_SIZE);
+
+        /* Read first sector of FAT 2 */
+        int result = _sd_read(&sd_device, block_buffer, bpb_fat2_sector * BLOCK_SIZE, BLOCK_SIZE);
+
+        if (result != SD_BLOCK_DEVICE_OK) {
+            test_puts("FAIL (error ");
+            test_print_hex_word(result);
+            test_puts(")");
+            test_print_crlf();
+            return TEST_FAIL;
+        }
+
+        /* Compare first sector of FAT 1 and FAT 2 (should be identical) */
+        if (memcmp(compare_buffer, block_buffer, BLOCK_SIZE) != 0) {
+            test_puts("FAIL (FAT 1 and FAT 2 differ)");
+            test_print_crlf();
+            return TEST_FAIL;
+        }
+
+        test_puts("PASS");
+        test_print_crlf();
+    }
+
+    test_puts("PASS");
+    test_print_crlf();
+    return TEST_PASS;
+}
+
 /* Suite cleanup: restore zeros if we wrote the pattern */
 static void suite_cleanup(void)
 {
@@ -304,4 +384,5 @@ TEST_SUITE_SETUP_CLEANUP(06_sdspi, NULL, suite_cleanup,
                          read_boot_sector,
                          read_fat1,
                          read_fat2_compare,
-                         write_verify_pattern);
+                         write_verify_pattern,
+                         baud_rate);
